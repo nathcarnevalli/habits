@@ -1,21 +1,86 @@
-import { ScrollView, View, Text } from 'react-native'
+import { ScrollView, View, Text, Alert } from 'react-native'
 import { useRoute } from '@react-navigation/native'
 import { BackButton } from '../components/BackButton'
 import dayjs from 'dayjs'
 import { ProgressBar } from '../components/ProgressBar'
 import { Checkbox } from '../components/Checkbox'
+import { useEffect, useState } from 'react'
+import { generateProgressPercentage } from '../utils/generate-progress-percentage'
+import { api } from '../lib/axios'
+import { Loading } from '../components/Loading'
+import clsx from 'clsx'
+import { HabitsEmpty } from '../components/HabitEmpty'
 
 interface HabitParams {
   date: string
 }
 
-export function Habit() {
-  const route = useRoute()
-  const { date } = route.params as HabitParams
+interface DayInfoProps {
+  completedHabits: string[]
+  possibleHabits: {
+    id: string
+    title: string
+  }[]
+}
 
+export function Habit() {
+  const [loading, setLoading] = useState(true)
+  const [dayInfo, setDayInfo] = useState<DayInfoProps | null>(null)
+  const [completedHabits, setCompletedHabits] = useState<string[]>([])
+  const route = useRoute()
+
+  const { date } = route.params as HabitParams
   const parsedDate = dayjs(date)
+  const isDateInPast = parsedDate.endOf('day').isBefore(new Date())
   const dayOfWeek = parsedDate.format('dddd')
   const dayAndMonth = parsedDate.format('DD/MM')
+
+  const habitsProgress = dayInfo?.possibleHabits?.length
+    ? generateProgressPercentage(
+        dayInfo.possibleHabits.length,
+        completedHabits.length
+      )
+    : 0
+
+  async function fetchHabits() {
+    try {
+      setLoading(true)
+
+      const response = await api.get('/day', { params: { date } })
+      setDayInfo(response.data)
+      setCompletedHabits(response.data.completedHabits ?? [])
+    } catch (error) {
+      console.log(error)
+      Alert.alert('Ops', 'Error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleToggleHabits(habitId: string) {
+    try {
+      await api.patch(`/habits/${habitId}/toggle`)
+
+      if (completedHabits?.includes(habitId)) {
+        setCompletedHabits(prevState =>
+          prevState.filter(habit => habit !== habitId)
+        )
+      } else {
+        setCompletedHabits(prevState => [...prevState, habitId])
+      }
+    } catch (error) {
+      console.log(error)
+      Alert.alert('Ops', 'Error')
+    }
+  }
+
+  useEffect(() => {
+    fetchHabits()
+  }, [])
+
+  if (loading) {
+    return <Loading />
+  }
 
   return (
     <View className="flex-1 bg-background px-8 pt-16">
@@ -33,11 +98,26 @@ export function Habit() {
           {dayAndMonth}
         </Text>
 
-        <ProgressBar progress={30} />
+        <ProgressBar progress={habitsProgress} />
 
-        <View className="mt-6">
-          <Checkbox title="Drink 2L of water" checked={false} />
-          <Checkbox title="Sleep" checked={true} />
+        <View
+          className={clsx('mt-6', {
+            ['opacity-50']: isDateInPast
+          })}
+        >
+          {dayInfo?.possibleHabits ? (
+            dayInfo.possibleHabits?.map(habit => (
+              <Checkbox
+                key={habit.id}
+                title={habit.title}
+                checked={completedHabits?.includes(habit.id)}
+                onPress={() => handleToggleHabits(habit.id)}
+                disabled={isDateInPast}
+              />
+            ))
+          ) : (
+            <HabitsEmpty />
+          )}
         </View>
       </ScrollView>
     </View>

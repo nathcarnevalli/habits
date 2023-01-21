@@ -5,6 +5,7 @@ import dayjs from "dayjs"
 
 export async function appRoutes(app:FastifyInstance){
   app.post('/habits', async (req, res) => {
+
     const createHabitBody = z.object({
       title: z.string(),
       weekDays: z.array(
@@ -61,7 +62,7 @@ export async function appRoutes(app:FastifyInstance){
 
     const completedHabits = day?.DayHabits.map(dayHabit => {
       return dayHabit.habit_id
-    })
+    }) ?? []
 
     return {
       possibleHabits,

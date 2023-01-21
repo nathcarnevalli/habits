@@ -4,19 +4,14 @@ import { appRoutes } from './routes'
 
 const app = Fastify()
 
-app.register(cors)
+app.register(cors, {
+  origin: true
+})
 app.register(appRoutes)
 
 app.listen({
   port: 3333,
-  host: '192.168.18.11'
+  host: '0.0.0.0'
 }).then(() => {
-  console.log('Server is running!')
-})
-
-app.listen({
-  port: 3333,
-  host: 'localhost'
-}).then(() => {
-  console.log('Server is running!')
+  console.log('Server IP is running!')
 })
